@@ -1,0 +1,142 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2025-11-28T10:43:07+01:00",
+    "name": "Call of Duty 4 X",
+    "author": "dev@outpostgaming.xyz",
+    "description": "A Call of Duty 4X (CoD4X) dedicated server egg maintained by Outpost Gaming. This egg downloads and installs the latest CoD4X Linux server build, sets up a ready-to-run server environment, and provides a simple startup command with mod support. You must supply your own Call of Duty 4 game data (main/ and zone/) from a legitimate copy of the game; these files are not included.",
+    "features": null,
+    "docker_images": {
+        "quay.io/parkervcp/pterodactyl-images:debian_wine": "quay.io/parkervcp/pterodactyl-images:debian_wine"
+    },
+    "file_denylist": [],
+    "startup": "./cod4x18_dedrun +developer 0 +set dedicated 2 +set net_port {{SERVER_PORT}} +set fs_game {{FS_GAME}} +set sv_hostname {{SERVER_HOSTNAME}} +set sv_maxclients {{MAX_SLOTS}} +set g_gametype {{SERVER_GAMETYPE}} +map {{START_MAP}}",
+    "config": {
+        "files": "{\n    \"main/server.cfg\": {\n        \"parser\": \"file\",\n        \"find\": {\n            \"sv_hostname\": \"sv_hostname \\\"{{server.build.env.SERVER_HOSTNAME}}\\\"\",\n            \"sv_maxclients\": \"sv_maxclients \\\"{{server.build.env.MAX_SLOTS}}\\\"\",\n            \"rcon_password\": \"rcon_password \\\"{{server.build.env.RCON_PASSWORD}}\\\"\",\n            \"g_password\": \"g_password \\\"{{server.build.env.SERVER_PASSWORD}}\\\"\",\n            \"sv_authtoken\": \"sv_authtoken \\\"{{server.build.env.SERVER_AUTH_TOKEN}}\\\"\",\n            \"g_gametype\": \"g_gametype \\\"{{server.build.env.SERVER_GAMETYPE}}\\\"\",\n            \"sv_mapRotation\": \"sv_mapRotation \\\"{{server.build.env.MAP_ROTATION}}\\\"\"\n        }\n    }\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \"By using this software you agree to the usage conditions\",\r\n        \"FS_Startup\",\r\n        \"--- Common Initialization Completed ---\"\r\n    ]\r\n}",
+        "logs": "{}",
+        "stop": "quit"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/ash\r\nset -e\r\n\r\nGAME_DIR=\"/mnt/server\"\r\nURL=\"${DOWNLOAD_URL:-https://cod4x.ovh/uploads/short-url/59kvOM9hBabZjPJRlLX029BcskI.zip}\"\r\n\r\necho \"=======================================\"\r\necho \" Outpost CoD4X Installer (Flatten Mode)\"\r\necho \" GAME_DIR: ${GAME_DIR}\"\r\necho \" DOWNLOAD_URL: ${URL}\"\r\necho \"=======================================\"\r\n\r\napk update\r\napk add curl unzip\r\n\r\nmkdir -p \"${GAME_DIR}\"\r\ncd \"${GAME_DIR}\"\r\n\r\necho \"[1/4] Checking download URL...\"\r\nif ! curl --output /dev/null --silent --head --fail \"${URL}\"; then\r\n    echo \"ERROR: Could not reach ${URL}\"\r\n    exit 1\r\nfi\r\n\r\necho \"[2/4] Downloading CoD4X package...\"\r\ncurl -sSL \"${URL}\" -o cod4x_server.zip\r\n\r\necho \"[3/4] Extracting package...\"\r\nunzip -o cod4x_server.zip\r\n\r\necho \"Cleaning up zip...\"\r\nrm cod4x_server.zip\r\n\r\n# Detect nested folder automatically\r\nNESTED_DIR=$(find . -maxdepth 3 -type d -name \"cod4x-linux-server\" | head -n 1)\r\n\r\nif [ -n \"$NESTED_DIR\" ]; then\r\n    echo \"Detected nested directory: $NESTED_DIR\"\r\n    echo \"Moving files to ${GAME_DIR}...\"\r\n    mv \"$NESTED_DIR\"/* \"${GAME_DIR}/\"\r\n    \r\n    # Clean leftover version folders\r\n    PARENT=$(dirname \"$NESTED_DIR\")\r\n    rm -rf \"$PARENT\"\r\nfi\r\n\r\n# Verify binary now exists in /mnt/server/\r\nif [ ! -f \"${GAME_DIR}/cod4x18_dedrun\" ]; then\r\n    echo \"ERROR: cod4x18_dedrun not found in ${GAME_DIR}\"\r\n    ls -la\r\n    exit 1\r\nfi\r\n\r\nchmod +x \"${GAME_DIR}/cod4x18_dedrun\"\r\n\r\n# Create default config if none exists\r\nmkdir -p \"${GAME_DIR}/main\"\r\n\r\nif [ ! -f \"${GAME_DIR}/main/server.cfg\" ]; then\r\n    echo \"Generating default server.cfg...\"\r\n    cat <<EOF > \"${GAME_DIR}/main/server.cfg\"\r\nset sv_hostname \"${SERVER_HOSTNAME}\"\r\nset g_password \"${SERVER_PASSWORD}\"\r\nset rcon_password \"${RCON_PASSWORD}\"\r\n\r\nset sv_punkbuster \"0\"\r\nset sv_cheats \"0\"\r\nset sv_voice \"1\"\r\nset scr_teambalance \"1\"\r\nset g_allowvote \"1\"\r\n\r\nset sv_authorizemode \"0\"\r\nset sv_authtoken \"${SERVER_AUTH_TOKEN}\"\r\n\r\nset sv_floodProtect \"1\"\r\n\r\nset sv_mapRotation \"${MAP_ROTATION}\"\r\nEOF\r\nelse\r\n    echo \"server.cfg exists, not overwriting.\"\r\nfi\r\n\r\necho \"=======================================\"\r\necho \" CoD4X Installation Complete\"\r\necho \" Files flattened into /home/container/\"\r\necho \"=======================================\"",
+            "container": "alpine:3",
+            "entrypoint": "ash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Server Hostname",
+            "description": "The name that players will see in the Call of Duty 4X in-game server browser.",
+            "env_variable": "SERVER_HOSTNAME",
+            "default_value": "Outpost CoD4X Server",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:40",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Password",
+            "description": "The password players must enter to join the server.",
+            "env_variable": "SERVER_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "RCON Password",
+            "description": "The RCON password used to remotely manage and control the server.",
+            "env_variable": "RCON_PASSWORD",
+            "default_value": "changeme123",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Slots",
+            "description": "The maximum number of players allowed on the server at one time.",
+            "env_variable": "MAX_SLOTS",
+            "default_value": "32",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|min:1|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Map Rotation",
+            "description": "Map and gametype cycle for the server. Enter a valid CoD4X rotation string \r\n(e.g., \"gametype war map mp_crossfire\").",
+            "env_variable": "MAP_ROTATION",
+            "default_value": "gametype war map mp_crossfire",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Network Type",
+            "description": "Select how the server should be reachable. 1 (LAN Only) restricts access to your local network for private or offline play, while 2 (Public) makes the server accessible over the internet for online or community gameplay.",
+            "env_variable": "SERVER_NETWORK_TYPE",
+            "default_value": "2",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|in:1,2",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Authentication Token",
+            "description": "Token needed to list your server on the public masterserver. Generate one here: https://cod4master.cod4x.ovh/index.php?token_generator=true",
+            "env_variable": "SERVER_AUTH_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|size:40",
+            "field_type": "text"
+        },
+        {
+            "name": "Mod Directory",
+            "description": "Folder name of the mod to load. Enter the path relative to the server directory (e.g., mods/zombies). Leave blank to run the default game without mods.",
+            "env_variable": "FS_GAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:60",
+            "field_type": "text"
+        },
+        {
+            "name": "Gametype",
+            "description": "Select the game mode the server should run. Supported values include:\r\nwar (Team Deathmatch), dm (Free-For-All), dom (Domination), koth (Headquarters), sab (Sabotage), sd (Search & Destroy), ctf (Capture the Flag).\r\nDefault is war.",
+            "env_variable": "SERVER_GAMETYPE",
+            "default_value": "war",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:32",
+            "field_type": "text"
+        },
+        {
+            "name": "Startup Map",
+            "description": "The map the server should load when it starts. Enter a valid CoD4 map name (e.g., mp_crash, mp_crossfire, mp_shipment).\r\n\r\nImportant: Only enter the internal map folder name (like mp_shipment), not a descriptive name.\r\n\r\nCustom maps may also be used if they are installed on the server.",
+            "env_variable": "START_MAP",
+            "default_value": "mp_backlot",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|regex:/^mp_[A-Za-z0-9_]+$/|max:40",
+            "field_type": "text"
+        },
+        {
+            "name": "Download URL",
+            "description": "URL to download the CoD4X server package.\r\nLeave blank to use the default Outpost Gaming mirror.",
+            "env_variable": "DOWNLOAD_URL",
+            "default_value": "https://cod4x.ovh/uploads/short-url/59kvOM9hBabZjPJRlLX029BcskI.zip",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "string|nullable|url|max:300",
+            "field_type": "text"
+        }
+    ]
+}
